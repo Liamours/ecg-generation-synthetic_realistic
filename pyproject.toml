@@ -2,4 +2,19 @@
 name = "ecg-synthetic-realistic"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "numpy<2",
+    "pandas",
+    "scipy",
+    "opencv-python",
+    "pillow",
+    "matplotlib",
+    "imageio",
+    "imgaug",
+    "imutils",
+    "scikit-image",
+    "wfdb",
+    "pyyaml",
+    "qrcode",
+    "tqdm",
+]
