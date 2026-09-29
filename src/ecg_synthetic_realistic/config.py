@@ -15,7 +15,9 @@ ECG_IMAGE_KIT_BATCH_SCRIPT = ECG_IMAGE_KIT_GENERATOR_DIR / "gen_ecg_images_from_
 
 PTBXL_DATA_DIR = PROJECT_ROOT / "datasets" / "ptb-xl" / "data"
 
-DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "datasets" / "synthetic-ecg-realistic"
+TABLE_TEXTURE_DIR = PROJECT_ROOT / "datasets" / "table_textures"
+
+DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "datasets" / "ecg-synthetic_realistic"
 
 LEADS_PER_PANEL = 3
 PANELS_PER_RECORD = 4

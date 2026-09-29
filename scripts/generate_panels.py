@@ -1,8 +1,8 @@
-"""CLI for step 2 (wiki/plans/plan.md): assemble step 1's per-lead crops into
+"""CLI for step 2 (wiki/overview/synthetic_data_flow.md): assemble step 1's per-lead crops into
 full panel images with header/footer/label text.
 
 Usage:
-    uv run python scripts/generate_panels.py --leads-root ../../datasets/synthetic-ecg-realistic
+    uv run python scripts/generate_panels.py --leads-root ../../datasets/ecg-synthetic_realistic
 """
 from __future__ import annotations
 

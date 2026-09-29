@@ -101,6 +101,49 @@ def ge_datetime_header(rng: random.Random) -> str:
     return f"GE {day:02d}.{month}.{year:02d}  {hour:02d}:{minute:02d}"
 
 
+# GE 12SL measurement/interpretation report block (2026-09-23, reference
+# photo scan_0004.jpg): a real GE printout page prints this text-only
+# summary alongside the lead panels, no waveform. Vocabulary kept in
+# plausible clinical ranges, not exact reference-photo values repeated
+# verbatim, so the synthetic corpus doesn't memorize one report.
+SERIAL_PREFIX = "SCT"
+
+MEASUREMENT_RANGES_MS = {
+    "QRS": (70, 130), "QT": (330, 460), "QTC": (380, 470),
+    "PR": (100, 220), "P": (60, 130), "RR": (500, 1100), "PP": (500, 1100),
+}
+AXIS_RANGE_DEG = (-30, 100)
+
+INTERPRETATION_LINES = [
+    "Normal sinus rhythm",
+    "Normal sinus rhythm with sinus arrhythmia",
+    "Sinus tachycardia",
+    "Sinus bradycardia",
+    "Rightward axis",
+    "Leftward axis",
+    "T wave abnormality, consider anterior ischemia",
+    "T wave abnormality, consider inferior ischemia",
+    "Nonspecific ST abnormality",
+    "Abnormal ECG",
+    "Normal ECG",
+    "Borderline ECG",
+]
+
+
+def report_serial_number(rng: random.Random) -> str:
+    return f"{SERIAL_PREFIX}{rng.randint(10**8, 10**9 - 1)}PA"
+
+
+def report_measurements(rng: random.Random) -> dict[str, int]:
+    return {name: rng.randint(*rng_ms) for name, rng_ms in MEASUREMENT_RANGES_MS.items()} | {
+        "axis": rng.randint(*AXIS_RANGE_DEG),
+    }
+
+
+def report_interpretation(rng: random.Random) -> list[str]:
+    return rng.sample(INTERPRETATION_LINES, k=rng.randint(1, 4))
+
+
 def even_footer_fields(patient_ref: str, rng: random.Random) -> list[FooterField]:
     """The "even" style's footer top row -- notch filter / bandpass range
     / heart rate -- paired with the SAME bottom row as the "odd" style's

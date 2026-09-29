@@ -1,4 +1,4 @@
-"""Step 2 of the synthetic plan (wiki/plans/plan.md): combine step 1's three
+"""Step 2 of the synthetic plan (wiki/overview/synthetic_data_flow.md): combine step 1's three
 independently-cropped lead strips for one column into a single panel image,
 blending the seams so there's no hard boundary between leads, and draw the
 panel-level elements real panels carry: a header (device icon + "MAC 400"

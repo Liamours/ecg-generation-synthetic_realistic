@@ -1,8 +1,8 @@
-"""CLI for step 1 (wiki/plans/plan.md): render PTB-XL records and crop them
+"""CLI for step 1 (wiki/overview/synthetic_data_flow.md): render PTB-XL records and crop them
 into per-lead ground-truth images + signal arrays.
 
 Usage:
-    uv run python scripts/generate_leads.py --count 20 --output-root ../../datasets/synthetic-ecg-realistic
+    uv run python scripts/generate_leads.py --count 20 --output-root ../../datasets/ecg-synthetic_realistic
 """
 from __future__ import annotations
 

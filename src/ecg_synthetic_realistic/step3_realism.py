@@ -1,11 +1,11 @@
-"""Step 3 of the synthetic plan (wiki/plans/plan.md): panel-level realism the
+"""Step 3 of the synthetic plan (wiki/overview/synthetic_data_flow.md): panel-level realism the
 generator itself doesn't do -- paper color, tilt/rectification-style warp,
 and aging. Split out from step 2 deliberately: step 2 owns layout/text,
 step 3 owns "does this look like a real photographed piece of paper".
 
 Only the paper-tint piece is implemented so far (2026-09-05, in response to
 a direct reference-photo comparison). Tilt/perspective warp and tear/aging
-are still open per wiki/plans/plan.md and not built here yet.
+are still open per wiki/TODO.md and not built here yet.
 """
 from __future__ import annotations
 

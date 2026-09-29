@@ -671,7 +671,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ecg-synthetic-realistic"
+name = "ecg-generation-synthetic-realistic"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

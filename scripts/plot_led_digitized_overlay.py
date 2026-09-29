@@ -20,10 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ecg_synthetic_realistic.config import GRID_BOX_SECONDS  # noqa: E402
 from ecg_synthetic_realistic.template import signal_start_x  # noqa: E402
 
-DATASET_ROOT = Path(r"C:\research\research-ecg-digitization\datasets\synthetic-ptbxl-panels")
-PROJECT_ROOT = Path(r"C:\research\research-ecg-digitization")
+PROJECT_ROOT = Path(__file__).resolve().parents[3]  # scripts/plot_led_digitized_overlay.py -> ecg-generation-synthetic_realistic -> repo -> project root
+DATASET_ROOT = PROJECT_ROOT / "datasets" / "ecg-synthetic_realistic"
 GRID_PX_AT_RESOLUTION_200 = 39.37
-OUT_DIR = Path(r"C:\research\research-ecg-digitization\analyses\synthetic-digitzation-leds")
+OUT_DIR = PROJECT_ROOT / "analyses" / "synthetic-digitzation-leds"
 
 
 def main() -> None:

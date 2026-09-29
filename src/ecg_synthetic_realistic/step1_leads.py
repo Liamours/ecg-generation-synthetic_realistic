@@ -1,4 +1,4 @@
-"""Step 1 of the synthetic plan (wiki/plans/plan.md): render PTB-XL records to
+"""Step 1 of the synthetic plan (wiki/overview/synthetic_data_flow.md): render PTB-XL records to
 paper via ecg-image-kit, then crop out individual, per-lead paper-strip
 images with their exact digital signal as ground truth.
 
