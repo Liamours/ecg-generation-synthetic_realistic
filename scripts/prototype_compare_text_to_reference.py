@@ -39,8 +39,9 @@ def measure(style, text, col0, row0, col1, row1):
 
     box_px = 70.0
     gen_full = tp.build_panel(box_px=box_px, style=style, show_bbox=False).convert("L")
-    gx0, gy0 = int(col0 * box_px) - PAD_MEASURE, int(row0 * box_px) - PAD_MEASURE
-    gx1, gy1 = int(col1 * box_px) + PAD_MEASURE, int(row1 * box_px) + PAD_MEASURE
+    gmargin = tp.EXTRA_MARGIN_BOXES * box_px
+    gx0, gy0 = int(col0 * box_px) - PAD_MEASURE, int(row0 * box_px + gmargin) - PAD_MEASURE
+    gx1, gy1 = int(col1 * box_px) + PAD_MEASURE, int(row1 * box_px + gmargin) + PAD_MEASURE
     gen_crop_measure = gen_full.crop((gx0, gy0, gx1, gy1))
     gen_bbox = bbox_dark(np.asarray(gen_crop_measure))
 

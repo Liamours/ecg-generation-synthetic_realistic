@@ -2,7 +2,30 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-FONT_PATH = "C:/Windows/Fonts/consolab.ttf"
+FONT_REGULAR = "C:/Windows/Fonts/arial.ttf"
+FONT_BOLD = "C:/Windows/Fonts/arialbd.ttf"
+
+TEXT_GROUPS = {
+    "body": (FONT_BOLD, 2.45),
+    "footer_serial": (FONT_REGULAR, 1.52),
+    "footer_device": (FONT_REGULAR, 1.85),
+    "footer_org": (FONT_BOLD, 1.85),
+}
+FIELD_GROUP = {"For 2030887-001": "footer_serial", "MDC72942181716008": "footer_device", "INNOQ": "footer_org"}
+
+FIELD_POS = {
+    "odd": [
+        ("MAC 400", 3.076, 0.721), ("V1.02", 9.848, 0.750), ("I", 4.197, 2.490), ("II", 4.197, 5.979),
+        ("III", 4.167, 9.957), ("Auto", 4.636, 14.529), ("25mm/s", 9.015, 14.554), ("10mm/mV", 13.000, 14.546),
+        ("ADS", 17.485, 14.543), ("For 2030887-001", 2.606, 15.221), ("MDC72942181716008", 6.788, 15.236),
+        ("INNOQ", 12.894, 15.243),
+    ],
+    "even": [
+        ("GE", 3.446, 0.718), ("10.Sep.24", 9.297, 0.725), ("09:14", 13.676, 0.732), ("50Hz", 4.865, 14.521),
+        ("0.08-150Hz", 9.446, 14.521), ("80BPM", 14.757, 14.521), ("For 2030887-001", 2.257, 15.134),
+        ("MDC72942181716008", 6.041, 15.099), ("INNOQ", 11.797, 15.106),
+    ],
+}
 
 TEXT_FIELDS = {
     "odd": [
@@ -21,14 +44,14 @@ TEXT_FIELDS = {
     ],
     "even": [
         ("GE", 2.930, 0.139, 4.216, 0.881),
-        ("10.Sep'.24", 9.080, 0.379, 13.450, 1.121),
+        ("10.Sep.24", 9.080, 0.379, 13.450, 1.121),
         ("09:14", 13.450, 0.379, 16.664, 1.121),
         ("50Hz", 4.840, 14.159, 9.530, 14.901),
         ("0.08-150Hz", 9.530, 14.159, 12.744, 14.901),
         ("80BPM", 14.840, 14.159, 18.054, 14.901),
-        ("For 2030887-001", 2.040, 14.844, 5.810, 15.366),
-        ("MDC72942181716008", 5.810, 14.844, 11.580, 15.366),
-        ("INNOQ", 11.580, 14.844, 14.023, 15.366),
+        ("For 2030887-001", 2.040, 14.844, 5.284, 15.366),
+        ("MDC72942181716008", 5.810, 14.844, 10.840, 15.366),
+        ("INNOQ", 11.580, 14.844, 13.796, 15.366),
     ],
 }
 
@@ -103,44 +126,24 @@ def draw_dot_grid(draw, x0, y0, box_px, width_boxes, height_boxes, radius):
                     draw.ellipse([px - radius, py - radius, px + radius, py + radius], fill=INTERIOR_COLOR)
 
 
-def font_matching_height(text, target_h_px):
-    size = round(target_h_px)
-    font = ImageFont.truetype(FONT_PATH, max(size, 1))
-    bbox = font.getbbox(text)
-    rendered_h = bbox[3] - bbox[1]
-    while rendered_h < target_h_px:
+def font_for_cap(font_path, cap_px):
+    size = 6
+    while True:
+        font = ImageFont.truetype(font_path, size)
+        hb = font.getbbox("H")
+        if hb[3] - hb[1] >= cap_px:
+            return font, hb
         size += 1
-        font = ImageFont.truetype(FONT_PATH, size)
-        bbox = font.getbbox(text)
-        rendered_h = bbox[3] - bbox[1]
-    return font, bbox
 
 
-BOX_FILL_FRACTION = 0.9
-
-
-def draw_text_in_box(img, draw, text, x0_px, y0_px, x1_px, y1_px, color, show_bbox=False):
-    target_h = y1_px - y0_px
-    box_w = round((x1_px - x0_px) * BOX_FILL_FRACTION)
-    font, bbox = font_matching_height(text, target_h)
-    glyph_w, glyph_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    target_w = min(box_w, glyph_w)
-    layer = Image.new("RGBA", (max(1, glyph_w), max(1, glyph_h)), (0, 0, 0, 0))
-    ImageDraw.Draw(layer).text((-bbox[0], -bbox[1]), text, fill=(*color, 255), font=font)
-    layer = layer.resize((max(1, target_w), max(1, glyph_h)), Image.LANCZOS)
-    img.paste(layer, (round(x0_px), round(y0_px)), layer)
-    if show_bbox:
-        draw.rectangle([x0_px, y0_px, x0_px + target_w, y0_px + glyph_h], outline=(255, 0, 0), width=1)
-
-
-def draw_text_fields(img, draw, x0, y0, box_px, style, show_bbox=False):
-    for text, col0, row0, col1, row1 in TEXT_FIELDS[style]:
-        draw_text_in_box(
-            img, draw, text,
-            x0 + col0 * box_px, y0 + row0 * box_px,
-            x0 + col1 * box_px, y0 + row1 * box_px,
-            BOUNDARY_COLOR, show_bbox=show_bbox,
-        )
+def draw_text_fields(draw, x0, y0, box_px, style, color=BOUNDARY_COLOR):
+    for text, left_col, cap_center_row in FIELD_POS[style]:
+        font_path, cap_mm = TEXT_GROUPS[FIELD_GROUP.get(text, "body")]
+        font, hb = font_for_cap(font_path, cap_mm / 5 * box_px)
+        first = font.getbbox(text[0])
+        x = x0 + left_col * box_px - first[0]
+        y = y0 + cap_center_row * box_px - (hb[3] - hb[1]) / 2 - hb[1]
+        draw.text((x, y), text, fill=color, font=font)
 
 
 def build_panel(box_px: float, style: str = "odd", show_bbox: bool = False) -> Image.Image:
@@ -168,7 +171,7 @@ def build_panel(box_px: float, style: str = "odd", show_bbox: bool = False) -> I
     icon_y0 = border_w
     draw.rectangle([icon_x0, icon_y0, icon_x0 + ss_box_px, icon_y0 + ICON_HEIGHT_BOXES * ss_box_px], fill=(0, 0, 0))
 
-    draw_text_fields(img, draw, grid_x0, grid_y0, ss_box_px, style, show_bbox=show_bbox)
+    draw_text_fields(draw, grid_x0, grid_y0, ss_box_px, style)
 
     target_size = (round(canvas_w / SS), round(canvas_h / SS))
     return img.resize(target_size, Image.LANCZOS)
