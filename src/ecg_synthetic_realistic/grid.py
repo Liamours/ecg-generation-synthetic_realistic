@@ -23,7 +23,14 @@ from PIL import Image, ImageDraw
 # present -- this is unaffected by the width change itself, see
 # build_panel_template's style handling.
 PANEL_WIDTH_BOXES = 20
-PANEL_HEIGHT_BOXES = 15
+PANEL_HEIGHT_BOXES = 15  # the dot grid itself; the canvas is taller by the two margins below
+# Paper margin above and below the grid, added 2026-09-29: the reference crops
+# show the outer border line about 0.41 box above the grid's top line and
+# about 0.88 box below its bottom line (the footer's second row prints in that
+# lower margin). Both include OUTER_BORDER_INSET_PX below, the border's
+# distance from the canvas edge.
+PANEL_MARGIN_TOP_BOXES = 0.49
+PANEL_MARGIN_BOTTOM_BOXES = 0.96
 INTERIOR_DOTS_PER_BOX = 4  # marks at 1/5, 2/5, 3/5, 4/5 of the box, excluding the boundary itself
 
 BOUNDARY_DOT_COLOR = (120, 120, 120)
@@ -97,12 +104,9 @@ def draw_dot_grid(draw: ImageDraw.ImageDraw, xyxy: tuple[int, int, int, int], bo
 # from the dot grid itself: two AI-regenerated reference crops both show a
 # thin solid line just inside the panel's own top/bottom edge, distinct
 # from the grid's dense boundary dots. Runs the panel's FULL width
-# including any blank margin (confirmed with the user). Drawn a few px
-# inside the existing canvas edge, NOT by adding new canvas padding --
-# every y-coordinate in template.py (header/footer/row/calibration-step
-# placement, and every bbox recorded off them) assumes canvas y=0 is the
-# grid's own top edge, and padding the canvas would silently offset all of
-# that without a compensating change everywhere it's used.
+# including any blank margin (confirmed with the user). It sits a few px
+# inside the canvas edge, in the paper margin above and below the grid (see
+# PANEL_MARGIN_TOP_BOXES).
 OUTER_BORDER_COLOR = (170, 170, 170)
 OUTER_BORDER_WIDTH_PX = 1
 OUTER_BORDER_INSET_PX = 3  # distance from the canvas edge, inside the existing bounds
@@ -115,10 +119,11 @@ def draw_outer_border(draw: ImageDraw.ImageDraw, xyxy: tuple[int, int, int, int]
 
 
 def blank_panel_canvas(box_px: float, bg: tuple[int, int, int], grid_color: str = "grey") -> Image.Image:
-    size = (round(PANEL_WIDTH_BOXES * box_px), round(PANEL_HEIGHT_BOXES * box_px))
+    top_px = PANEL_MARGIN_TOP_BOXES * box_px
+    size = (round(PANEL_WIDTH_BOXES * box_px), round((PANEL_HEIGHT_BOXES + PANEL_MARGIN_TOP_BOXES + PANEL_MARGIN_BOTTOM_BOXES) * box_px))
     img = Image.new("RGB", size, bg)
     draw = ImageDraw.Draw(img)
     boundary_color, interior_color = GRID_COLOR_VARIANTS[grid_color]
-    draw_dot_grid(draw, (0, 0, size[0], size[1]), box_px, boundary_color, interior_color)
+    draw_dot_grid(draw, (0, top_px, size[0], top_px + PANEL_HEIGHT_BOXES * box_px), box_px, boundary_color, interior_color)
     draw_outer_border(draw, (0, 0, size[0], size[1]))
     return img

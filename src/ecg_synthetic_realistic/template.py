@@ -25,7 +25,8 @@ from scipy.interpolate import RBFInterpolator
 
 from . import text_vocab
 from .config import GRID_BOX_SECONDS
-from .grid import GRID_COLOR_VARIANTS, GRID_COLOR_WEIGHTS, PANEL_HEIGHT_BOXES, PANEL_WIDTH_BOXES, blank_panel_canvas, draw_dot_grid
+from .grid import (GRID_COLOR_VARIANTS, GRID_COLOR_WEIGHTS, OUTER_BORDER_INSET_PX, PANEL_HEIGHT_BOXES, PANEL_MARGIN_TOP_BOXES, PANEL_WIDTH_BOXES,
+                   blank_panel_canvas, draw_dot_grid)
 
 PAPER_TINT = (240, 234, 216)  # warm off-white, sampled by eye against a reference photo
 
@@ -50,21 +51,18 @@ FONT_CANDIDATES_SANS_BOLD = ["arialbd.ttf", "LiberationSans-Bold.ttf", "DejaVuSa
 TEXT_CAP_MM = {"body": 2.45, "footer_serial": 1.52, "footer_device": 1.85, "footer_org": 1.85}
 # Left ink edge of each printed field in grid boxes from the panel's left edge,
 # and its cap-height center in boxes from the grid's top line (measured on the
-# references). Header and footer vertical anchors sit 0.12 box below (header)
-# and 0.6 box above (footer) the measured 0.73 / 14.52 / 15.2: the
-# real print has about 0.4 box of paper above the grid's top line and spills
-# below its bottom line, a margin this canvas does not have (canvas height
-# is exactly PANEL_HEIGHT_BOXES), and a panel's tilt then clips text that
-# sits at the canvas edge.
+# references); add PANEL_MARGIN_TOP_BOXES for canvas coordinates. The footer's
+# second row prints below the grid's bottom line, in the bottom margin.
 HEADER_LEFT_BOXES = {"odd": [3.076, 9.848], "even": [3.446, 9.297, 13.676]}
-HEADER_CAP_CENTER_BOXES = 0.85
+HEADER_CAP_CENTER_BOXES = 0.73
 LABEL_LEFT_BOXES = 4.19
 LABEL_CAP_CENTER_BOXES = [2.52, 6.02, 9.99]
 FOOTER_TOP_LEFT_BOXES = {"odd": [4.636, 9.015, 13.0, 17.485], "even": [4.865, 9.446, 14.757]}
 FOOTER_BOTTOM_LEFT_BOXES = {"odd": [2.606, 6.788, 12.894], "even": [2.257, 6.041, 11.797]}
-FOOTER_TOP_CAP_CENTER_BOXES = 13.95
-FOOTER_BOTTOM_CAP_CENTER_BOXES = 14.62
+FOOTER_TOP_CAP_CENTER_BOXES = 14.52
+FOOTER_BOTTOM_CAP_CENTER_BOXES = 15.2
 FOOTER_BOTTOM_GROUPS = ["footer_serial", "footer_device", "footer_org"]
+HEADER_ICON_GRID_HEIGHT = 1.16  # taller than wide, top edge on the outer border line (prototype, 2026-09-26)
 
 # All four constants below corrected 2026-09-25 to EXACT measured values
 # (not rounded/compromise numbers) from the two AI-regenerated reference
@@ -269,7 +267,7 @@ def _draw_header(draw: ImageDraw.ImageDraw, header_text: str, style: PanelStyle,
     pieces = re.split(r"(?<=^GE) |\s{2,}", header_text)
     font, hb = _font_for_cap(TEXT_CAP_MM["body"], grid_px, bold=True)
     boxes = [
-        _draw_cap_text(draw, left * grid_px, HEADER_CAP_CENTER_BOXES * grid_px, piece, font, hb, (0, 0, 0))
+        _draw_cap_text(draw, left * grid_px, (PANEL_MARGIN_TOP_BOXES + HEADER_CAP_CENTER_BOXES) * grid_px, piece, font, hb, (0, 0, 0))
         for piece, left in zip(pieces, HEADER_LEFT_BOXES[style])
     ]
     return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
@@ -518,7 +516,7 @@ def build_panel_template(
     width, height = canvas.size
     draw = ImageDraw.Draw(canvas)
 
-    header_px = HEADER_HEIGHT_BOXES * grid_px
+    header_px = (PANEL_MARGIN_TOP_BOXES + HEADER_HEIGHT_BOXES) * grid_px
     row_px = ROW_HEIGHT_BOXES * grid_px
 
     row_y_ranges = []
@@ -529,8 +527,7 @@ def build_panel_template(
 
     icon_size = max(10, round(grid_px * HEADER_ICON_GRID_SIZE))
     icon_x0 = round(grid_px * HEADER_ICON_GRID_OFFSET)
-    icon_y0 = round((header_px - icon_size) / 2)
-    icon_xyxy = (icon_x0, icon_y0, icon_x0 + icon_size, icon_y0 + icon_size)
+    icon_xyxy = (icon_x0, OUTER_BORDER_INSET_PX, icon_x0 + icon_size, OUTER_BORDER_INSET_PX + round(grid_px * HEADER_ICON_GRID_HEIGHT))
     draw.rectangle(icon_xyxy, fill=(0, 0, 0))
 
     header_text = text_vocab.HEADER_TEXT if style == "odd" else text_vocab.ge_datetime_header(rng)
@@ -545,7 +542,7 @@ def build_panel_template(
         # not just the string's advance width) -- one box per row's own
         # printed lead-name text (I, aVR, V4, ...), not one box spanning the
         # whole 3-row group.
-        label_bboxes.append(_draw_cap_text(draw, LABEL_LEFT_BOXES * grid_px, cap_center_boxes * grid_px, name, label_font, label_hb, (0, 0, 0)))
+        label_bboxes.append(_draw_cap_text(draw, LABEL_LEFT_BOXES * grid_px, (PANEL_MARGIN_TOP_BOXES + cap_center_boxes) * grid_px, name, label_font, label_hb, (0, 0, 0)))
         text_fields.append((f"lead_label_{len(label_bboxes) - 1}", name, tuple(label_bboxes[-1])))
 
     # One calibration step, bottom-left lead only (matches the reference
@@ -670,11 +667,11 @@ def build_panel_template(
     # per field, since a real printer doesn't switch ink mid-line.
     bottom_row_color = rng.choice(BOTTOM_ROW_COLORS)
     for field_idx, (field, top_left, bottom_left) in enumerate(zip(fields, FOOTER_TOP_LEFT_BOXES[style], FOOTER_BOTTOM_LEFT_BOXES[style] + [None])):
-        top_box = _draw_cap_text(draw, top_left * grid_px, FOOTER_TOP_CAP_CENTER_BOXES * grid_px, field.top, top_font, top_hb, (0, 0, 0))
+        top_box = _draw_cap_text(draw, top_left * grid_px, (PANEL_MARGIN_TOP_BOXES + FOOTER_TOP_CAP_CENTER_BOXES) * grid_px, field.top, top_font, top_hb, (0, 0, 0))
         text_fields.append((f"footer_top_{field_idx}", field.top, top_box))
         if field.bottom:
             bottom_font, bottom_hb = _font_for_cap(TEXT_CAP_MM[FOOTER_BOTTOM_GROUPS[field_idx]], grid_px, bold=field.bottom_bold)
-            bottom_box = _draw_cap_text(draw, bottom_left * grid_px, FOOTER_BOTTOM_CAP_CENTER_BOXES * grid_px, field.bottom, bottom_font, bottom_hb, bottom_row_color)
+            bottom_box = _draw_cap_text(draw, bottom_left * grid_px, (PANEL_MARGIN_TOP_BOXES + FOOTER_BOTTOM_CAP_CENTER_BOXES) * grid_px, field.bottom, bottom_font, bottom_hb, bottom_row_color)
             text_fields.append((f"footer_bottom_{field_idx}", field.bottom, bottom_box))
 
     panel = PanelTemplate(
@@ -761,11 +758,10 @@ def build_report_panel_template(
     width, height = canvas.size
     draw = ImageDraw.Draw(canvas)
 
-    header_px = HEADER_HEIGHT_BOXES * grid_px
+    header_px = (PANEL_MARGIN_TOP_BOXES + HEADER_HEIGHT_BOXES) * grid_px
     icon_size = max(10, round(grid_px * HEADER_ICON_GRID_SIZE))
     icon_x0 = round(grid_px * HEADER_ICON_GRID_OFFSET)
-    icon_y0 = round((header_px - icon_size) / 2)
-    icon_xyxy = (icon_x0, icon_y0, icon_x0 + icon_size, icon_y0 + icon_size)
+    icon_xyxy = (icon_x0, OUTER_BORDER_INSET_PX, icon_x0 + icon_size, OUTER_BORDER_INSET_PX + round(grid_px * HEADER_ICON_GRID_HEIGHT))
     draw.rectangle(icon_xyxy, fill=(0, 0, 0))
 
     header_text = text_vocab.ge_datetime_header(rng)
