@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import random
+import re
 from dataclasses import dataclass
 
 import cv2
@@ -36,10 +37,34 @@ FOOTER_HEIGHT_BOXES = 1.5
 # Fixed for BOTH styles -- "even" must not grow the panel, see module docstring.
 ROW_HEIGHT_BOXES = (PANEL_HEIGHT_BOXES - HEADER_HEIGHT_BOXES - FOOTER_HEIGHT_BOXES) / 3
 
-LABEL_FONT_SIZE = 22
-HEADER_FONT_SIZE = 24
-FOOTER_TOP_FONT_SIZE = 21
-FOOTER_BOTTOM_FONT_SIZE = 11
+# Printed text on the lead panels and the report panel's header, rebuilt 2026-09-29 from measurements on the
+# two reference crops (datasets/panel_templates/, wiki/TODO.md "Ideal panel
+# template prototype: text rendering"). The old fixed pixel sizes (22/24/21/11
+# px) rendered text about half the real height at this project's grid_px
+# (39.37 px per 5 mm). Text is grouped by measured glyph cap height, one font
+# and one size per group, natural spacing, no stretching. Body font is Arial
+# Bold as a placeholder: no installed font fit the body glyphs well, Arial
+# Bold lands within about 0.5 mm of the real widths.
+FONT_CANDIDATES_SANS = ["arial.ttf", "LiberationSans-Regular.ttf", "DejaVuSans.ttf"]
+FONT_CANDIDATES_SANS_BOLD = ["arialbd.ttf", "LiberationSans-Bold.ttf", "DejaVuSans-Bold.ttf"]
+TEXT_CAP_MM = {"body": 2.45, "footer_serial": 1.52, "footer_device": 1.85, "footer_org": 1.85}
+# Left ink edge of each printed field in grid boxes from the panel's left edge,
+# and its cap-height center in boxes from the grid's top line (measured on the
+# references). Header and footer vertical anchors sit 0.12 box below (header)
+# and 0.6 box above (footer) the measured 0.73 / 14.52 / 15.2: the
+# real print has about 0.4 box of paper above the grid's top line and spills
+# below its bottom line, a margin this canvas does not have (canvas height
+# is exactly PANEL_HEIGHT_BOXES), and a panel's tilt then clips text that
+# sits at the canvas edge.
+HEADER_LEFT_BOXES = {"odd": [3.076, 9.848], "even": [3.446, 9.297, 13.676]}
+HEADER_CAP_CENTER_BOXES = 0.85
+LABEL_LEFT_BOXES = 4.19
+LABEL_CAP_CENTER_BOXES = [2.52, 6.02, 9.99]
+FOOTER_TOP_LEFT_BOXES = {"odd": [4.636, 9.015, 13.0, 17.485], "even": [4.865, 9.446, 14.757]}
+FOOTER_BOTTOM_LEFT_BOXES = {"odd": [2.606, 6.788, 12.894], "even": [2.257, 6.041, 11.797]}
+FOOTER_TOP_CAP_CENTER_BOXES = 13.95
+FOOTER_BOTTOM_CAP_CENTER_BOXES = 14.62
+FOOTER_BOTTOM_GROUPS = ["footer_serial", "footer_device", "footer_org"]
 
 # All four constants below corrected 2026-09-25 to EXACT measured values
 # (not rounded/compromise numbers) from the two AI-regenerated reference
@@ -56,15 +81,12 @@ HEADER_ICON_GRID_OFFSET = 2.05  # mean of even (2.07) and odd (2.03), independen
 HEADER_ICON_GRID_SIZE = 1.0
 LABEL_GRID_OFFSET = 4.09  # mean of odd's I/II/III label column positions (3.94, 4.08, 4.26)
 
-# Footer column center positions, in grid boxes from the left edge -- not
-# spread across the full width. "even"'s real content still occupies only
-# the first 18 of the panel's 20 boxes, unaffected by the 2026-09-25 width
-# change -- see grid.py's PANEL_WIDTH_BOXES note. "odd"'s own printed
-# footer genuinely spans out toward the panel's new right edge (trailing
-# code sits past box 17), not an 18-box core with incidental margin like
-# "even".
-FOOTER_COLUMN_GRID_BOXES_ODD = [4.73, 9.12, 12.98, 17.58]
-FOOTER_COLUMN_GRID_BOXES_EVEN = [4.84, 9.53, 14.84]
+# "even"'s real content still occupies only the first 18 of the panel's 20
+# boxes, unaffected by the 2026-09-25 width change -- see grid.py's
+# PANEL_WIDTH_BOXES note. "odd"'s own printed footer genuinely spans out
+# toward the panel's new right edge (trailing code sits past box 17), not an
+# 18-box core with incidental margin like "even". Footer field positions:
+# FOOTER_TOP_LEFT_BOXES / FOOTER_BOTTOM_LEFT_BOXES above.
 
 # The footer's bottom row (patient ref / serial / INNOQ) is red in most
 # real photos, black in at least one confirmed real example -- both real,
@@ -198,6 +220,59 @@ def _load_font(size: int, bold: bool) -> ImageFont.FreeTypeFont:
         _font_cache[key] = font
         return font
     return ImageFont.load_default()
+
+
+_cap_font_cache: dict[tuple[bool, int], tuple[ImageFont.FreeTypeFont, tuple[int, int, int, int]]] = {}
+
+
+def _font_for_cap(cap_mm: float, grid_px: float, bold: bool) -> tuple[ImageFont.FreeTypeFont, tuple[int, int, int, int]]:
+    """Sans font whose capital-letter ink height is closest to `cap_mm`
+    (grid_px is px per 5 mm), with that font's bbox of "H" so callers can
+    center the cap block vertically."""
+    cap_px = cap_mm / 5.0 * grid_px
+    key = (bold, round(cap_px * 4))
+    if key in _cap_font_cache:
+        return _cap_font_cache[key]
+    for name in (FONT_CANDIDATES_SANS_BOLD if bold else FONT_CANDIDATES_SANS):
+        try:
+            best = None
+            for size in range(6, 200):
+                font = ImageFont.truetype(name, size)
+                hb = font.getbbox("H")
+                gap = abs((hb[3] - hb[1]) - cap_px)
+                if best is None or gap < best[0]:
+                    best = (gap, font, hb)
+                if hb[3] - hb[1] > cap_px:
+                    break
+            _cap_font_cache[key] = (best[1], best[2])
+            return _cap_font_cache[key]
+        except OSError:
+            continue
+    fallback = ImageFont.load_default()
+    return fallback, fallback.getbbox("H")
+
+
+def _draw_cap_text(draw: ImageDraw.ImageDraw, left_x: float, cap_center_y: float, text: str, font: ImageFont.FreeTypeFont,
+                   hb: tuple[int, int, int, int], fill: tuple[int, int, int]) -> tuple[int, int, int, int]:
+    """Draw `text` with its first glyph's ink starting at `left_x` and its
+    capital-letter block centered on `cap_center_y`; returns the ink bbox."""
+    x = left_x - font.getbbox(text[0])[0]
+    y = cap_center_y - (hb[3] - hb[1]) / 2 - hb[1]
+    draw.text((x, y), text, fill=fill, font=font)
+    return tuple(draw.textbbox((x, y), text, font=font))
+
+
+def _draw_header(draw: ImageDraw.ImageDraw, header_text: str, style: PanelStyle, grid_px: float) -> tuple[int, int, int, int]:
+    """Header text as its separate printed fields (`MAC 400` / `V1.02`, or
+    `GE` / date / time) at their measured columns; returns the union bbox,
+    which is what the single "header" text field records."""
+    pieces = re.split(r"(?<=^GE) |\s{2,}", header_text)
+    font, hb = _font_for_cap(TEXT_CAP_MM["body"], grid_px, bold=True)
+    boxes = [
+        _draw_cap_text(draw, left * grid_px, HEADER_CAP_CENTER_BOXES * grid_px, piece, font, hb, (0, 0, 0))
+        for piece, left in zip(pieces, HEADER_LEFT_BOXES[style])
+    ]
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
 
 
 # _shift_bbox and _apply_width_margin (random 18/19/20 crop-margin paste)
@@ -444,7 +519,6 @@ def build_panel_template(
     draw = ImageDraw.Draw(canvas)
 
     header_px = HEADER_HEIGHT_BOXES * grid_px
-    footer_px = FOOTER_HEIGHT_BOXES * grid_px
     row_px = ROW_HEIGHT_BOXES * grid_px
 
     row_y_ranges = []
@@ -460,24 +534,18 @@ def build_panel_template(
     draw.rectangle(icon_xyxy, fill=(0, 0, 0))
 
     header_text = text_vocab.HEADER_TEXT if style == "odd" else text_vocab.ge_datetime_header(rng)
-    header_font = _load_font(HEADER_FONT_SIZE, bold=True)
-    header_pos = (icon_x0 + icon_size - 2, round(header_px * 0.45))
-    draw.text(header_pos, header_text, fill=(0, 0, 0), font=header_font)
     text_fields: list[tuple[str, str, tuple[int, int, int, int]]] = [
-        ("header", header_text, tuple(draw.textbbox(header_pos, header_text, font=header_font))),
+        ("header", header_text, _draw_header(draw, header_text, style, grid_px)),
     ]
 
-    label_font = _load_font(LABEL_FONT_SIZE, bold=True)
-    label_x = round(grid_px * LABEL_GRID_OFFSET)
+    label_font, label_hb = _font_for_cap(TEXT_CAP_MM["body"], grid_px, bold=True)
     label_bboxes: list[tuple[int, int, int, int]] = []
-    for name, (y_top, y_bottom) in zip(row_labels, row_y_ranges):
-        label_pos = (label_x, (y_top + y_bottom) // 2 - 26)
-        draw.text(label_pos, name, fill=(0, 0, 0), font=label_font)
+    for name, cap_center_boxes in zip(row_labels, LABEL_CAP_CENTER_BOXES):
         # Exact rendered-glyph box (textbbox accounts for real font metrics,
         # not just the string's advance width) -- one box per row's own
         # printed lead-name text (I, aVR, V4, ...), not one box spanning the
         # whole 3-row group.
-        label_bboxes.append(draw.textbbox(label_pos, name, font=label_font))
+        label_bboxes.append(_draw_cap_text(draw, LABEL_LEFT_BOXES * grid_px, cap_center_boxes * grid_px, name, label_font, label_hb, (0, 0, 0)))
         text_fields.append((f"lead_label_{len(label_bboxes) - 1}", name, tuple(label_bboxes[-1])))
 
     # One calibration step, bottom-left lead only (matches the reference
@@ -596,27 +664,18 @@ def build_panel_template(
     else:
         fields = text_vocab.even_footer_fields(patient_ref, rng)
 
-    top_font = _load_font(FOOTER_TOP_FONT_SIZE, bold=True)
-    bottom_font_plain = _load_font(FOOTER_BOTTOM_FONT_SIZE, bold=False)
-    bottom_font_bold = _load_font(FOOTER_BOTTOM_FONT_SIZE, bold=True)
-    footer_y0 = height - footer_px
-    column_boxes = FOOTER_COLUMN_GRID_BOXES_ODD if style == "odd" else FOOTER_COLUMN_GRID_BOXES_EVEN
+    top_font, top_hb = _font_for_cap(TEXT_CAP_MM["body"], grid_px, bold=True)
     # Real photos show this row in red ink most of the time, but at least
     # one confirmed example prints it in black -- one color per panel, not
     # per field, since a real printer doesn't switch ink mid-line.
     bottom_row_color = rng.choice(BOTTOM_ROW_COLORS)
-    for field_idx, (field, box_offset) in enumerate(zip(fields, column_boxes)):
-        center_x = box_offset * grid_px
-        top_w = draw.textlength(field.top, font=top_font)
-        top_pos = (round(center_x - top_w / 2), round(footer_y0 + footer_px * 0.1))
-        draw.text(top_pos, field.top, fill=(0, 0, 0), font=top_font)
-        text_fields.append((f"footer_top_{field_idx}", field.top, tuple(draw.textbbox(top_pos, field.top, font=top_font))))
+    for field_idx, (field, top_left, bottom_left) in enumerate(zip(fields, FOOTER_TOP_LEFT_BOXES[style], FOOTER_BOTTOM_LEFT_BOXES[style] + [None])):
+        top_box = _draw_cap_text(draw, top_left * grid_px, FOOTER_TOP_CAP_CENTER_BOXES * grid_px, field.top, top_font, top_hb, (0, 0, 0))
+        text_fields.append((f"footer_top_{field_idx}", field.top, top_box))
         if field.bottom:
-            bottom_font = bottom_font_bold if field.bottom_bold else bottom_font_plain
-            bottom_w = draw.textlength(field.bottom, font=bottom_font)
-            bottom_pos = (round(center_x - bottom_w / 2), round(footer_y0 + footer_px * 0.55))
-            draw.text(bottom_pos, field.bottom, fill=bottom_row_color, font=bottom_font)
-            text_fields.append((f"footer_bottom_{field_idx}", field.bottom, tuple(draw.textbbox(bottom_pos, field.bottom, font=bottom_font))))
+            bottom_font, bottom_hb = _font_for_cap(TEXT_CAP_MM[FOOTER_BOTTOM_GROUPS[field_idx]], grid_px, bold=field.bottom_bold)
+            bottom_box = _draw_cap_text(draw, bottom_left * grid_px, FOOTER_BOTTOM_CAP_CENTER_BOXES * grid_px, field.bottom, bottom_font, bottom_hb, bottom_row_color)
+            text_fields.append((f"footer_bottom_{field_idx}", field.bottom, bottom_box))
 
     panel = PanelTemplate(
         image=canvas,
@@ -710,11 +769,8 @@ def build_report_panel_template(
     draw.rectangle(icon_xyxy, fill=(0, 0, 0))
 
     header_text = text_vocab.ge_datetime_header(rng)
-    header_font = _load_font(HEADER_FONT_SIZE, bold=True)
-    header_pos = (icon_x0 + icon_size - 2, round(header_px * 0.45))
-    draw.text(header_pos, header_text, fill=(0, 0, 0), font=header_font)
     text_fields: list[tuple[str, str, tuple[int, int, int, int]]] = [
-        ("header", header_text, tuple(draw.textbbox(header_pos, header_text, font=header_font))),
+        ("header", header_text, _draw_header(draw, header_text, "even", grid_px)),
     ]
 
     body_font = _load_font(REPORT_FONT_SIZE, bold=False)
