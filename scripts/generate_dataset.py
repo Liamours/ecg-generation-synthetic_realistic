@@ -902,7 +902,7 @@ def main() -> None:
     # Path.relative_to(PROJECT_ROOT), which is a purely lexical operation, so a
     # relative --out-dir containing ".." fails that check even when it resolves
     # inside the project. Found 2026-09-18 running the schema validation into
-    # inferences/, which produced "'..\\..\\inferences\\pages\\page_0000.png' is
+    # results/inferences/, which produced "'..\\..\\inferences\\pages\\page_0000.png' is
     # not in the subpath of '<project root>'".
     args.out_dir = args.out_dir.resolve()
 

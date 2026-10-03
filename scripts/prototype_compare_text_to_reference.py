@@ -18,7 +18,7 @@ REAL_ORIGIN_PITCH = {
 }
 PAD_MEASURE = 3
 PAD_VISUAL = 20
-OUT = PROJECT_ROOT / "inferences" / "ideal_panel_template_prototype" / "compare"
+OUT = PROJECT_ROOT / "results" / "inferences" / "ideal_panel_template_prototype" / "compare"
 
 
 def bbox_dark(gray_arr, thresh=200):

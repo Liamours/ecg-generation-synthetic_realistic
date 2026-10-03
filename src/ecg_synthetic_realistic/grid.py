@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 # retired the same day, see template.py) -- measured directly against two
 # AI-regenerated reference crops of a real GE MAC 400 panel (one MAC-400/
 # "odd" style, one GE/"even" style, same patient/device, see
-# datasets/panel_templates/ and inferences/grid_warp_check/register.md
+# datasets/panel_templates/ and results/inferences/grid_warp_check/register.md
 # entries): "odd" style's own printed footer content genuinely spans all
 # 20 boxes (its trailing code sits past column 17), not an 18-box core
 # with incidental crop margin. "even" style's real content stays within

@@ -106,7 +106,7 @@ BIG_SHADOW_PROBABILITY = 0.45  # raised from 0.25 2026-09-21, user call: shadow 
 # Reduced from (-26.0, 26.0) 2026-09-21 (wiki/TODO.md item 7, user call:
 # "a bit less violent"). Originally validated 2026-09-15 against
 # apply_perspective_warp_3d's own test trials
-# (analyses/warp3d-experiment/warp3d_{tilt_x,tilt_y,both,extreme}.png) at
+# (results/analyses/warp3d-experiment/warp3d_{tilt_x,tilt_y,both,extreme}.png) at
 # the wider range; halved here rather than re-deriving from new trials,
 # since the ask was specifically to soften the existing effect, not
 # re-pick it from scratch. Also moved from a per-paper draw (inside

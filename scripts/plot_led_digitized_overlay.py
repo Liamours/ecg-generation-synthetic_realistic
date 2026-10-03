@@ -23,7 +23,7 @@ from ecg_synthetic_realistic.template import signal_start_x  # noqa: E402
 PROJECT_ROOT = Path(__file__).resolve().parents[3]  # scripts/plot_led_digitized_overlay.py -> ecg-generation-synthetic_realistic -> repo -> project root
 DATASET_ROOT = PROJECT_ROOT / "datasets" / "ecg-synthetic_realistic"
 GRID_PX_AT_RESOLUTION_200 = 39.37
-OUT_DIR = PROJECT_ROOT / "analyses" / "synthetic-digitzation-leds"
+OUT_DIR = PROJECT_ROOT / "results" / "analyses" / "synthetic-digitzation-leds"
 
 
 def main() -> None:

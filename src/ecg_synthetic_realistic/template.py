@@ -68,7 +68,7 @@ HEADER_ICON_GRID_HEIGHT = 1.16  # taller than wide, top edge on the outer border
 # (not rounded/compromise numbers) from the two AI-regenerated reference
 # crops -- pixel-thresholded (icon) and OCR bbox center (labels/footer),
 # origin/pitch established directly per template from the same reference
-# (see inferences/grid_warp_check/text_positions.json for the full
+# (see results/inferences/grid_warp_check/text_positions.json for the full
 # measurement, both templates cross-checked against each other). The
 # prior values (icon offset 3.0, label offset 4.0, footer columns
 # [5,8,11,14]/[6.0,9.5,13.0]) were 2026-09-05-era estimates never

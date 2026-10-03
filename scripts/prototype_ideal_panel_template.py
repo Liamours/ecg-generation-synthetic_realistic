@@ -178,7 +178,7 @@ def build_panel(box_px: float, style: str = "odd", show_bbox: bool = False) -> I
 
 
 if __name__ == "__main__":
-    out = Path(__file__).parents[3] / "inferences" / "ideal_panel_template_prototype"
+    out = Path(__file__).parents[3] / "results" / "inferences" / "ideal_panel_template_prototype"
     out.mkdir(parents=True, exist_ok=True)
     for style in ("odd", "even"):
         panel = build_panel(box_px=70.0, style=style, show_bbox=False)
